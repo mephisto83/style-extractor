@@ -41,7 +41,7 @@ async function style_extractor(args: {
         captureEvents = true,
         captureSize = true,
         styleStrategy = CSS_CLASS,
-        name = 'Component',
+        name = 'component',
         debug = true,
         styleValueStrategy
     } = args;
@@ -141,6 +141,173 @@ async function style_extractor(args: {
             return rv;
         }, {});
     };
+
+    function finalize(data: any) {
+        console.log('started');
+        let css_classes = Object.keys(data);
+        const NOT_COMMON = 'NOT_COMMON';
+        console.log('for each class');
+        let common_data: any = {};
+        css_classes.map(css_class => {
+            let size_sections = Object.keys(data[css_class]);
+            console.log('for each size');
+            common_data[css_class] = common_data[css_class] || {};
+            let common_size_style: any = {};
+            size_sections.map(size => {
+                console.log('size: ' + size)
+                let events = Object.keys(data[css_class][size]);
+                let common_event_style: any = {};
+                common_data[css_class][size] = common_data[css_class][size] || {};
+                events.map(evt => {
+                    console.log('for each event: ' + (evt === 'true' ? 'default' : evt));
+                    let styles = data[css_class][size][evt];
+                    common_data[css_class][size][evt] = common_data[css_class][size][evt] || {};
+                    common_data[css_class][size][evt] = { ...styles };
+                    Object.keys(styles).map(style_key => {
+
+                        updateCommons(common_size_style, style_key, NOT_COMMON, styles);
+                        updateCommons(common_event_style, style_key, NOT_COMMON, styles);
+                    })
+                })
+                common_data[css_class][size].$common = common_event_style;
+                Object.keys(common_event_style).map(style_key => {
+                    updateCommons(common_size_style, style_key, NOT_COMMON, common_event_style)
+                })
+            })
+            common_data[css_class].$common = common_size_style;
+        })
+        css_classes.map(css_class => {
+            let size_sections = Object.keys(data[css_class]);
+            console.log('for each size');
+            size_sections.map(size => {
+                console.log('size: ' + size)
+                let events = Object.keys(data[css_class][size]);
+                events.map(evt => {
+                    console.log('for each event: ' + (evt === 'true' ? 'default' : evt));
+                    common_data[css_class][size][evt] = common_data[css_class][size][evt] || {};
+
+                    for (let i in common_data[css_class][size].$common) {
+                        if (common_data[css_class][size].$common[i] !== NOT_COMMON) {
+                            delete common_data[css_class][size][evt][i]
+                        }
+                    }
+                    for (let i in common_data[css_class].$common) {
+                        if (common_data[css_class].$common[i] !== NOT_COMMON) {
+                            delete common_data[css_class][size][evt][i]
+                        }
+                    }
+                })
+            })
+        })
+        css_classes.map(css_class => {
+            let size_sections = Object.keys(data[css_class]);
+            console.log('for each size');
+            size_sections.map(size => {
+                console.log('size: ' + size)
+                for (let i in common_data[css_class][size].$common) {
+                    if (common_data[css_class][size].$common[i] === NOT_COMMON) {
+                        delete common_data[css_class][size].$common[i]
+                    }
+                    else if (common_data[css_class].$common[i] === common_data[css_class][size].$common[i]) {
+                        delete common_data[css_class][size].$common[i]
+                    }
+                }
+            })
+            for (let i in common_data[css_class].$common) {
+                if (common_data[css_class].$common[i] === NOT_COMMON) {
+                    delete common_data[css_class].$common[i]
+                }
+            }
+        })
+        console.log(JSON.stringify(common_data, null, 4));
+        let top_class = Object.keys(data)[0];
+        let css = Object.keys(common_data).map(key => {
+            let default_cls = top_class === key ? `.${key}` : `.${top_class} .${key}`;
+            let has_styles = Object.keys(common_data[key].$common).length !== 0;
+            let default_guts = ''
+            if (has_styles) {
+                default_guts = Object.keys(common_data[key].$common).map(v => {
+                    return `${v}: ${common_data[key].$common[v]};`;
+                }).join(`
+                `);
+            }
+            let default_css_class = has_styles ? `
+                ${default_cls} {
+                    ${default_guts}
+                }
+            `: '';
+            let more_css = Object.keys(common_data[key]).filter(x => x !== '$common').map(size_key => {
+                let common_guts = ``;
+                if (Object.keys(common_data[key][size_key].$common).length) {
+                    common_guts = Object.keys(common_data[key][size_key].$common).map(v => {
+                        return `${v}: ${common_data[key][size_key].$common[v]};`;
+                    }).join(`
+                    `);
+                }
+
+                let width_handle = 'max-width';
+                let width_handle_measure = '1px';
+                let size_ = SIZE_OPTIONS.find(v => v.name === size_key);
+                if (!size_) {
+                    throw 'no size match';
+                }
+                else {
+                    width_handle_measure = `${size_.width}px`;
+                    if (SIZE_OPTIONS.findIndex(v => v.name === size_?.name) === (SIZE_OPTIONS.length - 1)) {
+                        width_handle = 'min-width';
+                        width_handle_measure = `${SIZE_OPTIONS[SIZE_OPTIONS.length - 2].width}px`;
+                    }
+                }
+                let mediaguts = Object.keys(common_data[key][size_key]).filter(v => v !== '$common').map(evt_key => {
+                    if (evt_key === 'true') {
+                        common_guts += Object.keys(common_data[key][size_key][evt_key]).map(v => {
+                            return `${v}: ${common_data[key][size_key][evt_key][v]};`;
+                        }).join(`
+                        `);
+                        return '';
+                    }
+                    let guyts = Object.keys(common_data[key][size_key][evt_key]).map(v => {
+                        return `${v}: ${common_data[key][size_key][evt_key][v]};`;
+                    }).join(`
+                    `);
+                    if (guyts) {
+                        return `.${top_class}:${evt_key} ${key === top_class ? '' : ('.' + key)} {
+                        ${guyts}
+                        }
+                        `
+                    }
+                }).filter(x => x).join(`
+                `);
+                if (mediaguts || common_guts) {
+                    mediaguts = `
+                    @media (${width_handle}: ${width_handle_measure}) {
+                        .${top_class} ${key === top_class ? '' : ('.' + key)} {
+                        ${common_guts || ''}
+                    }
+                        ${mediaguts || ''}
+                    }`
+                }
+                return mediaguts;
+            });
+            return [default_css_class, ...more_css].join(`
+            `)
+        }).filter(x => x).join(`
+        `)
+        return css;
+    }
+
+    function updateCommons(common_style: any, style_key: string, NOT_COMMON: string, styles: any) {
+        if (common_style.hasOwnProperty(style_key)) {
+            if (common_style[style_key] !== NOT_COMMON) {
+                if (common_style[style_key] !== styles[style_key]) {
+                    common_style[style_key] = NOT_COMMON;
+                }
+            }
+        } else {
+            common_style[style_key] = styles[style_key];
+        }
+    }
+
     let root = document.querySelector(selector);
     let defaultStyleValues: any = {};
     function buildStylesForElement(root: any, eventType: any) {
@@ -153,12 +320,11 @@ async function style_extractor(args: {
                 defaultStyleValues[root_cls_id] = {};
             }
             for (let key in elementStyles) {
-                console.log(key)
                 let defaultValue = getDefaultProperty(root?.tagName, key)
                 if (defaultValue !== elementStyles[key]) {
                     non_default_styles[key] = elementStyles[key];
                 }
-                else if (eventType !== null && elementStyles[key] !== defaultStyleValues[root_cls_id][key]) {
+                else if (eventType !== null && defaultStyleValues[root_cls_id] && elementStyles[key] !== defaultStyleValues[root_cls_id][key]) {
                     non_default_styles[key] = elementStyles[key];
                 }
                 if (eventType === null) {
@@ -187,7 +353,7 @@ async function style_extractor(args: {
     }
     let style_dic: any = [];
     function crawlElement(el: Element | null, styleFunction: any, eventType?: string | null, sizeType?: string | null): any {
-        if (el) {
+        if (el && el.nodeType === 1) {
             let attr = el.getAttribute(style_extractor_attribute);
 
             let style = styleFunction(el, eventType);
@@ -273,6 +439,8 @@ async function style_extractor(args: {
     let class_count = 0;
     function addPrefixToElement(el: Element | null) {
         if (el) {
+            if (debug)
+                console.log(el)
             el.setAttribute(style_extractor_attribute, `${class_count}`);
             class_count++;
             let childEls = [];
@@ -283,7 +451,8 @@ async function style_extractor(args: {
                         break;
                     default:
                         if (!notrecursive) {
-                            childEls.push(addPrefixToElement(children[i]));
+                            if (children[i].nodeType === 1)
+                                childEls.push(addPrefixToElement(children[i]));
                         }
                         break;
                 }
@@ -342,8 +511,8 @@ async function style_extractor(args: {
     }
     addPrefixToElement(root);
     let result_el;
-    let eventsToCapture = !captureSize ? [null] : [null, 'mouseover']; //'mousedown', 
-    let sizeToCapture = !captureEvents ? [null] : SIZE_OPTIONS // 'tablet', 'medium', 'large',
+    let eventsToCapture = !captureEvents ? [null] : [null, 'mouseover']; //'mousedown', 
+    let sizeToCapture = !captureSize ? [null] : SIZE_OPTIONS // 'tablet', 'medium', 'large',
     if (captureSize || captureEvents) {
         for (let j = 0; j < eventsToCapture.length; j++) {
             let event_type = eventsToCapture[j];
@@ -388,7 +557,7 @@ async function style_extractor(args: {
                     })
                 }
                 else {
-                    result_el = crawlElement(root, buildStylesForElement);
+                    result_el = crawlElement(root, buildStylesForElement, event_type, size_type?.name);
                 }
             }
         }
@@ -396,12 +565,13 @@ async function style_extractor(args: {
     let class_defs = ``;
     let style_lib = buildStyleLib(style_dic);
     let style_groups = groupBy(style_dic, 'current_class')
+    let event_driven_styles: any = {};
     Object.keys(style_groups).map(current_class => {
         if (debug) {
             console.log(`style_groups => current_class: ${current_class}`);
         }
         let event_size_array = style_groups[current_class];
-
+        event_driven_styles[current_class] = event_driven_styles[current_class] || {};
         let sizeGroups = groupBy(event_size_array, 'sizeType')
         let event_size_handlers = Object.keys(sizeGroups).map(s_key => {
             if (debug) {
@@ -409,6 +579,7 @@ async function style_extractor(args: {
             }
             let v_events = sizeGroups[s_key];
             let event_driven_code = '';
+            event_driven_styles[current_class][s_key] = event_driven_styles[current_class][s_key] || {};
             v_events.map((v: any) => {
                 if (debug) {
                     console.log(`v_events : ${v.eventType}`);
@@ -423,11 +594,15 @@ async function style_extractor(args: {
                         evt_ = `hover`;
                         break;
                 }
+                event_driven_styles[current_class][s_key][evt_] = event_driven_styles[current_class][s_key][evt_] || {};
                 switch (styleStrategy) {
                     case CSS_CLASS:
+                        let _eds_name = evt_ === 'true' ? (`.${name || prefix}0` + (`${prefix}${0}` !== current_class ? ` .${current_class}` : '') + '{') : (`.${name || prefix}0` + ':' + evt_ + ` .${current_class}` + '{');
+
                         event_driven_code += `
-                             ${evt_ === 'true' ? (`.${prefix}0` + ` .${current_class}` + '{') : (`.${prefix}0` + ':' + evt_ + ` .${current_class}` + '{')} 
+                             ${_eds_name} 
                                 ${Object.keys(style_).map(v => {
+                            event_driven_styles[current_class][s_key][evt_][v] = style_[v];
                             return `${v}: ${style_[v]};`;
                         }).join(``)}
                         ${evt_ === 'true' ? '}' : ('}')}
@@ -487,6 +662,7 @@ async function style_extractor(args: {
                 }`;
                 break;
         }
+        console.log(event_driven_styles);
     })
     // style_dic.map((v: any) => {
     //     let style_ = v.style;
@@ -516,7 +692,7 @@ async function style_extractor(args: {
         case CSS_CLASS:
             console.log(`
             /** 
-            ${class_defs}
+            ${finalize(event_driven_styles)}
              * */
             import React from 'react';
             export default function ${name || '__name__'}(props) {
@@ -538,5 +714,4 @@ async function style_extractor(args: {
         }`);
             break;
     }
-
 }
