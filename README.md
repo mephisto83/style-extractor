@@ -17,9 +17,9 @@ The purpose of this script is to take simplify duplicating components in webpage
         
         let css_selector = 'selector for an element';
         // Produces output for react
-        style_extractor(css_selector, true)
+        style_extractor({selector: css_selector, reactMode: true})
         // Produces output for inline stylesheets
-        style_extractor(css_selector)
+        style_extractor({selector: css_selector})
         ```
 1. Wait for the output
 
@@ -40,24 +40,29 @@ function style_extractor(selector, reactMode, textWrapper) {
         if (!elem)
             return {}; // Element does not exist, empty list.
         var win = document.defaultView || window, style, styleNode = {};
-        if (win.getComputedStyle) { /* Modern browsers */
-            style = win.getComputedStyle(elem, '');
-            for (var i = 0; i < style.length; i++) {
-                styleNode[style[i]] = style.getPropertyValue(style[i]);
-                //               ^name ^           ^ value ^
+        try {
+            if (win.getComputedStyle) { /* Modern browsers */
+                style = win.getComputedStyle(elem, '');
+                for (var i = 0; i < style.length; i++) {
+                    styleNode[style[i]] = style.getPropertyValue(style[i]);
+                    //               ^name ^           ^ value ^
+                }
+            }
+            else if (elem.currentStyle) { /* IE */
+                style = elem.currentStyle;
+                for (var name in style) {
+                    styleNode[name] = style[name];
+                }
+            }
+            else { /* Ancient browser..*/
+                style = elem.style;
+                for (var i = 0; i < style.length; i++) {
+                    styleNode[style[i]] = style[style[i]];
+                }
             }
         }
-        else if (elem.currentStyle) { /* IE */
-            style = elem.currentStyle;
-            for (var name in style) {
-                styleNode[name] = style[name];
-            }
-        }
-        else { /* Ancient browser..*/
-            style = elem.style;
-            for (var i = 0; i < style.length; i++) {
-                styleNode[style[i]] = style[style[i]];
-            }
+        catch (e) {
+            console.error(e);
         }
         return styleNode;
     }

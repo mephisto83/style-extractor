@@ -1,0 +1,1 @@
+style_extractor({selector: '.thisone', reactMode: true})
