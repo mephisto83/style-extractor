@@ -407,6 +407,15 @@ async function style_extractor(args: {
                                     val = 'true';
                                 }
                                 break;
+                            case 'stop-color':
+                                name = 'stopColor';
+                                break;
+                            case 'fill-rule':
+                                name = 'fillRule';
+                                break;
+                            case 'playsinline':
+                                name = 'playsInline'
+                                break;
                             case 'loop':
                                 name = 'loop';
                                 if (!attr.value) {
@@ -590,6 +599,7 @@ async function style_extractor(args: {
                     case 'mousedown':
                         evt_ = `pressed`;
                         break;
+
                     case 'mouseover':
                         evt_ = `hover`;
                         break;
