@@ -12,10 +12,11 @@ async function style_extractor(args: {
 }) {
     const CSS_CLASS = 'CSS_CLASS';
     const SKIP_SUSPECT = 'SKIP_SUSPECT';
-    const SIZE_OPTIONS = [{
-        name: 'iPhone 5',
-        width: 320,
-        height: 568
+    const SIZE_OPTIONS = [
+        // {
+        // name: 'iPhone 5',
+        // width: 320,
+        // height: 568
         // }, {
         //     name: 'iPhone 6',
         //     width: 375,
@@ -24,15 +25,16 @@ async function style_extractor(args: {
         //     name: 'iPad',
         //     width: 1024,
         //     height: 768
-    }, {
-        name: 'Laptop',
-        width: 1440,
-        height: 900
-    }, {
-        name: 'Desktop',
-        width: 1680,
-        height: 1050
-    }];
+        // }, {
+        //     name: 'Laptop',
+        //     width: 1440,
+        //     height: 900
+        // },
+        {
+            name: 'Desktop',
+            width: 1680,
+            height: 1050
+        }];
     let {
         selector,
         reactMode,
@@ -255,7 +257,11 @@ async function style_extractor(args: {
                     width_handle_measure = `${size_.width}px`;
                     if (SIZE_OPTIONS.findIndex(v => v.name === size_?.name) === (SIZE_OPTIONS.length - 1)) {
                         width_handle = 'min-width';
-                        width_handle_measure = `${SIZE_OPTIONS[SIZE_OPTIONS.length - 2].width}px`;
+                        if (SIZE_OPTIONS[SIZE_OPTIONS.length - 2])
+                            width_handle_measure = `${SIZE_OPTIONS[SIZE_OPTIONS.length - 2].width}px`;
+                        else {
+                            width_handle_measure = `0px`;
+                        }
                     }
                 }
                 let mediaguts = Object.keys(common_data[key][size_key]).filter(v => v !== '$common').map(evt_key => {
