@@ -419,6 +419,12 @@ async function style_extractor(args: {
                             case 'fill-rule':
                                 name = 'fillRule';
                                 break;
+                            case 'srcset':
+                                name = 'srcSet'
+                                break;
+                            case 'readonly':
+                                name = 'readOnly';
+                                break;
                             case 'playsinline':
                                 name = 'playsInline'
                                 break;
