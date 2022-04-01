@@ -47,6 +47,11 @@ async function style_extractor(args: {
         debug = true,
         styleValueStrategy
     } = args;
+    const context = {
+        width: document.body.clientWidth,
+        height: document.body.clientHeight,
+        fontSize: parseFloat(getComputedStyle(document.body)['fontSize'])
+    }
     let prefix = 'css_class_';
     let style_extractor_attribute = 'style-extractor';
     textWrapper = textWrapper || ((x: string) => {
@@ -109,6 +114,25 @@ async function style_extractor(args: {
             });
         }
         return found;
+    }
+    function getPixNum(str: string) {
+        const regex = /(?<num>[0-9\.]*)px/gm;
+
+        let m: any;
+        let results: any[] = [];
+        while ((m = regex.exec(str)) !== null) {
+            // This is necessary to avoid infinite loops with zero-width matches
+            if (m.index === regex.lastIndex) {
+                regex.lastIndex++;
+            }
+
+            // The result can be accessed through the `m`-variable.
+            console.log(m[0]);
+            if (m.groups?.num) {
+                results.push(parseFloat(m.groups?.num));
+            }
+        }
+        return results;
     }
     const getDefaultProperty = function (tagName: string, property: string) {
         // Create new element
@@ -333,6 +357,42 @@ async function style_extractor(args: {
                 else if (eventType !== null && defaultStyleValues[root_cls_id] && elementStyles[key] !== defaultStyleValues[root_cls_id][key]) {
                     non_default_styles[key] = elementStyles[key];
                 }
+                if (matchesPixelDimension(`${non_default_styles[key]}`)) {
+                    console.log(`${non_default_styles[key]}`);
+                    switch (key) {
+                        case 'inset-inline-start':
+                        case 'border-bottom-left-radius':
+                        case 'border-bottom-right-radius':
+                        case 'border-end-end-radius':
+                        case 'border-end-start-radius':
+                        case 'border-start-end-radius':
+                        case 'border-start-start-radius':
+                        case 'border-top-left-radius':
+                        case 'border-top-right-radius':
+                        case 'inset-inline-end':
+                        case 'height':
+                        case 'perspective-origin':
+                        case 'line-height':
+                        case 'left':
+                        case 'padding-top':
+                        case 'padding-bottom':
+                        case 'padding-block-start':
+                        case 'padding-block-end':
+                            non_default_styles[key] = [getPixNum(`${non_default_styles[key]}`).map(v => {
+                                return (v / context.fontSize) + 'rem'
+                            }).join(' ')];
+                            break;
+                        case 'width':
+                            non_default_styles[key] = [getPixNum(`${non_default_styles[key]}`).map(v => {
+                                return (v / context.width) + 'rem'
+                            }).join(' ')];
+                            break;
+                        default:
+                            console.log(`unhandled: ${key}`);
+                            break;
+                    }
+                }
+
                 if (eventType === null) {
                     defaultStyleValues[root_cls_id][key] = elementStyles[key];
                 }
@@ -539,6 +599,9 @@ async function style_extractor(args: {
             let event_type = eventsToCapture[j];
             for (let k = 0; k < sizeToCapture.length; k++) {
                 let size_type = sizeToCapture[k];
+
+                context.width = document.body.clientWidth;
+                context.height = document.body.clientHeight;
                 if (debug) {
                     console.log(`event_type: ${event_type} , size_type: ${size_type?.name}`);
                 }
@@ -686,15 +749,6 @@ async function style_extractor(args: {
         }
         console.log(event_driven_styles);
     })
-    // style_dic.map((v: any) => {
-    //     let style_ = v.style;
-
-    //     class_defs += `
-    //     let class${v.class_count} = ()=> {
-    //         return ${JSON.stringify(style_, null, 4)};
-    //     }`;
-    // })
-
     let colors = getColors(class_defs);
     let style_defs = '';
     style_lib.map((v: any) => {
