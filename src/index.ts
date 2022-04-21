@@ -791,3 +791,53 @@ async function style_extractor(args: {
             break;
     }
 }
+
+async function se(args: {}) {
+}
+function isRuleApplied(element: any, selector: string) {
+
+    if (typeof element.matches == 'function')
+        return element.matches(selector);
+
+    if (typeof element.matchesSelector == 'function')
+        return element.matchesSelector(selector);
+
+    var matches = (element.document || element.ownerDocument).querySelectorAll(selector);
+    var i = 0;
+
+    while (matches[i] && matches[i] !== element)
+        i++;
+
+    return matches[i] ? true : false;
+}
+async function loadLinks() {
+    let result: string[] = [];
+    let links = document.querySelectorAll('link[rel="stylesheet"]');
+    console.log(`links found: ` + links.length);
+    for (let i = 0; i < links.length; i++) {
+        let href = links[i].getAttribute('href') || '';
+        if (href) {
+            let res = await (await fetch(href)).text();
+            result.push(res);
+        }
+    } 
+    return links;
+}
+async function loadStyleSheets(): Promise<string[]> {
+    let result: string[] = [];
+    let stylesheets = document.querySelectorAll('style');
+    let links = loadLinks();
+    console.log(`stylesheets found: ` + stylesheets.length);
+
+    return result;
+}
+function rulesForCssText(styleContent: any) {
+    var doc = document.implementation.createHTMLDocument(""),
+        styleElement = document.createElement("style");
+
+    styleElement.textContent = styleContent;
+    // the style will only be parsed once it is added to a document
+    doc.body.appendChild(styleElement);
+
+    return styleElement?.sheet?.cssRules;
+};
